@@ -12,6 +12,7 @@ from lxml.html import soupparser, fromstring
 import itertools
 #from IPython import embed
 from urlparse import urlparse
+import sqlite3
 
 class XSSCharFinder(object):
     def __init__(self):
@@ -969,41 +970,76 @@ class XSSCharFinder(object):
         return event_attributes
 
     def write_to_file(self, item, spider):
-        with open(self.filename, 'a+') as f:
-            f.write('\n')
 
-            f.write('URL: '+item['orig_url']+'\n')
-            spider.log('    URL: '+item['orig_url'], level='INFO')
+        data = {
+            'URL': item['orig_url'],
+            'response URL': item['resp_url'],
+            'Unfiltered': item['unfiltered'],
+            'Payload': item['xss_payload'],
+            'Type': item['xss_place'],
+            'Injection point': item['xss_param'],
+            'Line': item['line']
+        }
+        if 'POST_to' in item:
+            data['POST_to'] = item['POST_to']
+        else:
+            data['POST_to'] = 'None'
+        if 'sugg_payloads' in item:
+            data['Possible_payloads'] = item['sugg_payloads']
+        else:
+            data['Possible_payloads'] = 'None'
+        if 'error' in item:
+            data['Error'] = item['error']
+        else:
+            data['Error'] = 'None'
 
-            f.write('response URL: '+item['resp_url']+'\n')
-            spider.log('    response URL: '+item['resp_url'], level='INFO')
+        conn = sqlite3.connect('vulns.db')
 
-            if 'POST_to' in item:
-                f.write('POST url: '+item['POST_to']+'\n')
-                spider.log('    POST url: '+item['POST_to'], level='INFO')
+        with conn:
+            c = conn.cursor()
+            table = 'CREATE TABLE IF NOT EXISTS vulns (id INTEGER PRIMARY KEY,' \
+                    'url TEXT,' \
+                    'response_url TEXT,' \
+                    'POST_url TEXT,' \
+                    'unfiltered TEXT,' \
+                    'payload TEXT,' \
+                    'type_vuln TEXT,' \
+                    'injection_point TEXT,' \
+                    'possible_payloads TEXT,' \
+                    'error TEXT)'
 
-            f.write('Unfiltered: '+item['unfiltered']+'\n')
-            spider.log('    Unfiltered: '+item['unfiltered'], level='INFO')
+            c.execute(table)
+            c.execute(
+                '''INSERT INTO vulns (url,
+                  response_url,
+                   POST_url,
+                    unfiltered,
+                     payload,
+                      type_vuln,
+                       injection_point,
+                        possible_payloads,
+                          error) VALUES (?,?,?,?,?,?,?,?,?)''', (item['orig_url'],
+                                                                 item['resp_url'],
+                                                                 item['unfiltered'],
+                                                                 item['xss_payload'],
+                                                                 item['xss_place'],
+                                                                 item['xss_param'],
+                                                                 data['POST_to'],
+                                                                 data['Possible_payloads'],
+                                                                 data['Error'])
+            )
 
-            f.write('Payload: '+item['xss_payload']+'\n')
-            spider.log('    Payload: '+item['xss_payload'], level='INFO')
-
-            f.write('Type: '+item['xss_place']+'\n')
-            spider.log('    Type: '+item['xss_place'], level='INFO')
-
-            f.write('Injection point: '+item['xss_param']+'\n')
-            spider.log('    Injection point: '+item['xss_param'], level='INFO')
-
-            if 'sugg_payloads' in item:
-                f.write('Possible payloads: '+item['sugg_payloads']+'\n')
-                spider.log('    Possible payloads: '+item['sugg_payloads'], level='INFO')
-
-            # Cut off the line at 500
-            #f.write('Line: '+item['line'][-500:]+'\n')
-            f.write('Line: '+item['line']+'\n')
-            spider.log('    Line: '+item['line'], level='INFO')
-
-            if 'error' in item:
-                f.write('Error: '+item['error']+'\n')
-                spider.log('    Error: '+item['error'], level='INFO')
+        spider.log('    URL: '+item['orig_url'], level='INFO')
+        spider.log('    response URL: '+item['resp_url'], level='INFO')
+        if 'POST_to' in item:
+            spider.log('    POST url: '+item['POST_to'], level='INFO')
+        spider.log('    Unfiltered: '+item['unfiltered'], level='INFO')
+        spider.log('    Payload: '+item['xss_payload'], level='INFO')
+        spider.log('    Type: '+item['xss_place'], level='INFO')
+        spider.log('    Injection point: '+item['xss_param'], level='INFO')
+        if 'sugg_payloads' in item:
+            spider.log('    Possible payloads: '+item['sugg_payloads'], level='INFO')
+        spider.log('    Line: '+item['line'], level='INFO')
+        if 'error' in item:
+            spider.log('    Error: '+item['error'], level='INFO')
 
