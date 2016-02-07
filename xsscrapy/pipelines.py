@@ -2,6 +2,7 @@
 #
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
+import os
 from scrapy.exceptions import DropItem
 import HTMLParser
 from xsscrapy.items import vuln#, inj_resp
@@ -970,7 +971,7 @@ class XSSCharFinder(object):
         return event_attributes
 
     def write_to_file(self, item, spider):
-
+        jenkins_build_number = int(os.environ['build_number'])
         data = {
             'URL': item['orig_url'],
             'response URL': item['resp_url'],
@@ -1006,7 +1007,8 @@ class XSSCharFinder(object):
                     'type_vuln TEXT,' \
                     'injection_point TEXT,' \
                     'possible_payloads TEXT,' \
-                    'error TEXT)'
+                    'error TEXT,' \
+                    'jenkins_build_number INT)'
 
             c.execute(table)
             c.execute(
@@ -1018,7 +1020,8 @@ class XSSCharFinder(object):
                       type_vuln,
                        injection_point,
                         possible_payloads,
-                          error) VALUES (?,?,?,?,?,?,?,?,?)''', (item['orig_url'],
+                          error,
+                          jenkins_build_number) VALUES (?,?,?,?,?,?,?,?,?,?)''', (item['orig_url'],
                                                                  item['resp_url'],
                                                                  item['unfiltered'],
                                                                  item['xss_payload'],
@@ -1026,7 +1029,8 @@ class XSSCharFinder(object):
                                                                  item['xss_param'],
                                                                  data['POST_to'],
                                                                  data['Possible_payloads'],
-                                                                 data['Error'])
+                                                                 data['Error'],
+                                                                 jenkins_build_number)
             )
 
         spider.log('    URL: '+item['orig_url'], level='INFO')
