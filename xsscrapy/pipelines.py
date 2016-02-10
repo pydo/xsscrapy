@@ -971,7 +971,7 @@ class XSSCharFinder(object):
         return event_attributes
 
     def write_to_file(self, item, spider):
-        jenkins_build_number = int(os.environ['build_number'])
+        jenkins_build_number = int(os.environ['BUILD_NUMBER'])
         data = {
             'URL': item['orig_url'],
             'response URL': item['resp_url'],
